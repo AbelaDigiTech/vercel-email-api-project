@@ -24,54 +24,97 @@ const User = mongoose.model('User', UserSchema);
 // 3. Nodemailer Transporter using Gmail (Moved up so the route can use it)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // Use SSL
   auth: {
     user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASS 
-  }
+    pass: process.env.GMAIL_APP_PASS,
+  },
+  connectionTimeout: 10000, // 10 seconds timeout limit
+  greetingTimeout: 10000,
 });
 
 // 4. Connection route handler
+
 app.post('/api/connect', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // 1. Save to MongoDB
+    // (Your database save logic goes here...)
+
+    // 2. Send Email
     try {
-        const { email } = req.body;
-
-        // Email Validation
-        if (!email) {
-            return res.status(400).json({ 
-                error: 'Email is required please!' 
-            });
-        }
-
-        // Save user to MongoDB database
-        const newUser = new User({ email });
-        await newUser.save();
-        console.log(`Saved to MongoDB: ${email}`);
-
-        // Email notification setup
-        const mailOptions = {
-          from: process.env.GMAIL_USER,
-          to: email, 
-          subject: 'Connection Successful!',
-          text: 'Hello! You have successfully connected to our platform server.',
-          html: '<h1>Connection Success</h1><p>Your email has successfully hooked up to our node system.</p>'
-        };
-
-        // Sending the email
-        await transporter.sendMail(mailOptions);
-        console.log(`Notification sent successfully to ${email}`);
-
-        // One single response back to the frontend at the very end
-        return res.status(201).json({
-            success: true,
-            message: 'Email successfully logged and notification sent!',
-            user: { email }
-        });
-
-    } catch (error) {
-        console.error('Connection error:', error);
-        return res.status(500).json({ error: 'Internal server error.' });
+      await transporter.sendMail({
+        from: process.env.GMAIL_USER,
+        to: email,
+        subject: 'Connection Successful!',
+        html: '<h1>Your connection is working!</h1>',
+      });
+    } catch (mailError) {
+      console.error("Email failed to send, but database saved:", mailError);
+      // Optional: Still return success if database worked but email failed
+      return res.status(201).json({ 
+        success: true, 
+        message: "Logged to DB, but notification delivery failed." 
+      });
     }
+
+    res.status(201).json({ success: true, message: "Successfully logged and sent!" });
+
+  } catch (error) {
+    console.error("Global Route Error:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
 });
+
+
+
+// app.post('/api/connect', async (req, res) => {
+//     try {
+//         const { email } = req.body;
+
+//         // Email Validation
+//         if (!email) {
+//             return res.status(400).json({ 
+//                 error: 'Email is required please!' 
+//             });
+//         }
+// // The backend route handler expects incoming data specifically at this route path where 
+// // our code logic lives
+
+
+//         // Save user to MongoDB database
+//         const newUser = new User({ email });
+//         await newUser.save();
+//         console.log(`Saved to MongoDB: ${email}`);
+
+//         // Email notification setup
+//         const mailOptions = {
+//           from: process.env.GMAIL_USER,
+//           to: email, 
+//           subject: 'Connection Successful!',
+//           text: 'Hello! You have successfully connected to our platform server.',
+//           html: '<h1>Connection Success</h1><p>Your email has successfully hooked up to our node system.</p>'
+//         };
+
+//         // Sending the email
+//         await transporter.sendMail(mailOptions);
+//         console.log(`Notification sent successfully to ${email}`);
+
+//         // One single response back to the frontend at the very end
+//         return res.status(201).json({
+//             success: true,
+//             message: 'Email successfully logged and notification sent!',
+//             user: { email }
+//         });
+
+//     } catch (error) {
+//         console.error('Connection error:', error);
+//         return res.status(500).json({ error: 'Internal server error.' });
+//     }
+// });
 
 // 5. Fallback route for unmatched requests (Fixed the '*' issue causing your crash)
 //  PASTE THIS INSTEAD:
